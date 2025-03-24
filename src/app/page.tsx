@@ -16,7 +16,7 @@ export default function Home() {
             desc="선형대수학을 할줄 알아도 자율주행은 못만들어요"
           />
 
-          <MainDescCard title="사회" desc="사회가 왜이래 쥐엔장" />
+          <MainDescCard title="SORA_X" desc="SORA_X는 실수를 할 수 있습니다" />
 
           <MainDescCard
             title="마법의 소라 고둥"
