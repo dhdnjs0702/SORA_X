@@ -14,6 +14,11 @@ const MainSearchBar = () => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [user, setUser] = useState<User | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [latestUserAnswer, setLatestUserAnswer] = useState<{
+    answer_text: string;
+    answer_answer: string;
+    answer_image: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -33,8 +38,23 @@ const MainSearchBar = () => {
       }
     };
 
+    const fetchLatestAnswer = async () => {
+      const data = await getAnswerFromSupabase();
+      if (data) {
+        setLatestUserAnswer({
+          answer_text: data.answer_text,
+          answer_answer: data.answer_answer,
+          answer_image: data.answer_image,
+        });
+      }
+    };
+
+    if (user) {
+      fetchLatestAnswer();
+    }
+
     checkUser();
-  }, []);
+  }, [answer]);
 
   const handleQuestionChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuestion(e.target.value);
@@ -84,8 +104,7 @@ const MainSearchBar = () => {
       const { data: urlData } = supabase.storage
         .from("sorax-img")
         .getPublicUrl(fileName);
-      console.log(fileName);
-      console.log("url", urlData.publicUrl);
+
       return urlData.publicUrl;
     } catch (error) {
       console.error("이미지 처리 중 오류 발생:", error);
@@ -112,7 +131,6 @@ const MainSearchBar = () => {
         }
       }
 
-      // OpenAI API 요청
       const res = await fetch("/api/openai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,7 +148,6 @@ const MainSearchBar = () => {
       const data = await res.json();
       setAnswer(data);
 
-      // OpenAI 응답을 받은 후 Supabase에 저장
       const { error } = await supabase.from("answers").insert({
         answer_user_id: user?.id || "",
         answer_text: question,
@@ -149,6 +166,33 @@ const MainSearchBar = () => {
     }
   };
 
+  const getAnswerFromSupabase = async () => {
+    if (!user) {
+      console.error("사용자 정보가 없습니다.");
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("answers")
+        .select("*")
+        .eq("answer_user_id", user.id)
+        .order("answer_created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error("최신 답변 가져오기 실패:", error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("최신 답변 조회 중 오류 발생:", error);
+      return null;
+    }
+  };
+  console.log(latestUserAnswer);
   return (
     <div className="flex flex-col items-center w-full">
       <form onSubmit={handleSubmit} className="w-full max-w-2xl relative mb-5">
@@ -196,7 +240,12 @@ const MainSearchBar = () => {
         />
       </form>
 
-      <MainAnswer isLoading={isLoading} answer={answer} question={question} />
+      <MainAnswer
+        isLoading={isLoading}
+        answer={answer || latestUserAnswer?.answer_answer || ""}
+        question={question || latestUserAnswer?.answer_text || ""}
+        imageUrl={latestUserAnswer?.answer_image || undefined}
+      />
 
       <input
         ref={fileInputRef}
